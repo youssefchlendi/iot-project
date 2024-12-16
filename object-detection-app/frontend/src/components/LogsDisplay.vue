@@ -27,6 +27,15 @@
       </button>
     </div>
 
+    <div class="alerts-container">
+      <h2>Real-Time Alerts</h2>
+      <ul>
+        <li v-for="(alert, index) in alerts" :key="index">
+          {{ alert }}
+        </li>
+      </ul>
+    </div>
+
     <!-- Detection Logs Table -->
     <table class="logs-table">
       <thead>
@@ -60,12 +69,15 @@
 
 <script>
 import axios from "axios";
+import mqtt from "mqtt";
 
 export default {
   data() {
     return {
       logs: [],
       command: "",
+      alerts: [],
+      mqttClient: null,
       status: {
         mongoStatus: "Unknown",
         logCount: 0,
@@ -109,10 +121,47 @@ export default {
         alert("Failed to send command.");
       }
     },
+    setupMqttSubscription() {
+      const brokerUrl = "ws://broker.hivemq.com:8000/mqtt"; // MQTT WebSocket broker
+      this.mqttClient = mqtt.connect(brokerUrl);
+
+      this.mqttClient.on("connect", () => {
+        console.log("Connected to MQTT broker");
+        this.mqttClient.subscribe("home_security/alerts", (err) => {
+          if (err) {
+            console.error("Subscription error:", err);
+          } else {
+            console.log("Subscribed to home_security/alerts");
+          }
+        });
+      });
+
+      this.mqttClient.on("message", (topic, message) => {
+        if (topic === "home_security/alerts") {
+          const alertMessage = message.toString();
+          this.alerts.push(alertMessage);
+
+          // Limit displayed alerts to the last 10
+          if (this.alerts.length > 10) {
+            this.alerts.shift();
+          }
+        }
+      });
+
+      this.mqttClient.on("error", (err) => {
+        console.error("MQTT error:", err);
+      });
+    },
   },
   mounted() {
     this.fetchLogs();
     this.fetchSystemStatus();
+    this.setupMqttSubscription();
+  },
+  beforeDestroy() {
+    if (this.mqttClient) {
+      this.mqttClient.end();
+    }
   },
 };
 </script>
@@ -227,5 +276,33 @@ export default {
 
 .command-form button:hover {
   background-color: #45a049;
+}
+
+.alerts-container {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #fff5f5;
+}
+
+.alerts-container h2 {
+  margin-bottom: 10px;
+  color: #e74c3c;
+}
+
+.alerts-container ul {
+  list-style: none;
+  padding: 0;
+}
+
+.alerts-container ul li {
+  margin: 8px 0;
+  padding: 8px;
+  border: 1px solid #e74c3c;
+  border-radius: 4px;
+  background-color: #ffe6e6;
+  color: #e74c3c;
+  font-weight: bold;
 }
 </style>

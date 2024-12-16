@@ -1,10 +1,7 @@
 <template>
   <div class="logs-container">
     <div class="header-container">
-      <h1>Object Detection Logs</h1>
-      <button class="refresh-button" @click="fetchLogs">
-        <span>Refresh</span>
-      </button>
+      <h1>Intrusion Detection System</h1>
     </div>
 
     <!-- System Monitoring Section -->
@@ -34,6 +31,13 @@
           {{ alert }}
         </li>
       </ul>
+    </div>
+
+    <div class="header-container">
+      <h1>Object Detection Logs</h1>
+      <button class="refresh-button" @click="fetchLogs">
+        <span>Refresh</span>
+      </button>
     </div>
 
     <!-- Detection Logs Table -->
@@ -142,7 +146,7 @@ export default {
           this.alerts.push(alertMessage);
 
           // Limit displayed alerts to the last 10
-          if (this.alerts.length > 10) {
+          if (this.alerts.length > 3) {
             this.alerts.shift();
           }
         }

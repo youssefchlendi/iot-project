@@ -18,6 +18,12 @@ const DetectionLog = mongoose.model("DetectionLog", new mongoose.Schema({
   timestamp: { type: Date, required: true },
 }), "DetectionLogs");
 
+const ArchivedLogs = mongoose.model("ArchivedLogs", new mongoose.Schema({
+  object: { type: String, required: true },
+  confidence: { type: Number, required: true },
+  timestamp: { type: Date, required: true },
+}), "ArchivedLogs");
+
 // MQTT Configuration
 const mqttClient = mqtt.connect("mqtt://broker.hivemq.com");
 
@@ -61,6 +67,9 @@ app.get("/api/system_status", async (req, res) => {
     let alarmActive = false;
     let alarmFrequency = 0;
     let alarmDuration = 0;
+    let flashActive = false;
+    let flashFreq = 0;
+    let flashDuration = 0;
 
     await mqttClient.publishAsync("home_security/commands", "get_status");
 
@@ -75,6 +84,10 @@ app.get("/api/system_status", async (req, res) => {
           alarmActive = response.alarm_active;
           alarmFrequency = response.frequency;
           alarmDuration = response.duration;
+          flashActive = response.flash_active;
+          flashFreq = response.flash_freq;
+          flashDuration = response.flash_duration;
+
           resolve();
         }
       });
@@ -88,12 +101,27 @@ app.get("/api/system_status", async (req, res) => {
       alarmActive,
       alarmFrequency,
       alarmDuration,
+      flashActive,
+      flashFreq,
+      flashDuration,
     };
 
     res.json(status);
   } catch (err) {
     console.error("Error fetching system status:", err);
     res.status(500).send("Error fetching system status.");
+  }
+});
+
+app.post("/api/cache_logs", async (req, res) => {
+  try {
+    const logs = await DetectionLog.find();
+    ArchivedLogs.insertMany(logs);
+    DetectionLog.deleteMany({}).exec();
+    res.json({ status: "Logs archived and cache cleared." });
+  } catch (err) {
+    console.error("Error fetching logs:", err);
+    res.status(500).send("Internal Server Error");
   }
 });
 

@@ -22,9 +22,9 @@ Write-Host "Starting MQTT Subscriber..." -ForegroundColor Green
 Set-Location "..\..\$detectionPath"
 Start-Process -FilePath "python" -ArgumentList "mqtt_subscriber.py"
 
-# Step 4: Run Command Subscriber
-Write-Host "Starting Command Subscriber..." -ForegroundColor Green
-Start-Process -FilePath "python" -ArgumentList "command_subscriber.py"
+# # Step 4: Run Command Subscriber
+# Write-Host "Starting Command Subscriber..." -ForegroundColor Green
+# Start-Process -FilePath "python" -ArgumentList "command_subscriber.py"
 
 # Step 5: Start YOLO Detection
 Write-Host "Starting YOLO Real-Time Detection..." -ForegroundColor Green

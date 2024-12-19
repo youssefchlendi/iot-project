@@ -18,6 +18,10 @@
           <strong>Alarm Frequency:</strong> {{ status.alarmFrequency }} Hz
         </li>
         <li><strong>Alarm Duration:</strong> {{ status.alarmDuration }} ms</li>
+        <li>
+          <strong>Flash Active:</strong> {{ status.flashActive ? "Yes" : "No" }}
+        </li>
+        <li><strong>Flash Duration:</strong> {{ status.flashDuration }} s</li>
       </ul>
       <button class="refresh-button" @click="fetchSystemStatus">
         <span>Refresh Status</span>
@@ -32,9 +36,31 @@
         </li>
       </ul>
     </div>
+    <div class="commands-container" v-if="haveNewCloseAlert">
+      <h2>Commands</h2>
+      <div class="commands">
+        <button
+          v-for="(command, i) in commands"
+          class="command-button"
+          :style="{ backgroundColor: command.background }"
+          :key="i"
+          @click="command.method"
+        >
+          <span>{{ command.title }}</span>
+        </button>
+      </div>
+    </div>
+    <!--  -->
 
     <div class="header-container">
       <h1>Object Detection Logs</h1>
+      <button
+        class="refresh-button"
+        @click="cacheLogs"
+        style="background-color: #e74c3c"
+      >
+        <span>Cache logs</span>
+      </button>
       <button class="refresh-button" @click="fetchLogs">
         <span>Refresh</span>
       </button>
@@ -57,27 +83,121 @@
         </tr>
       </tbody>
     </table>
-
-    <!-- Command Form -->
-    <form @submit.prevent="sendCommand" class="command-form">
-      <input
-        v-model="command"
-        type="text"
-        placeholder="Enter command"
-        required
-      />
-      <button type="submit">Send Command</button>
-    </form>
   </div>
 </template>
 
 <script>
 import axios from "axios";
 import mqtt from "mqtt";
+const SET_FLASH_COMMAND = "set_flash";
+const SET_ALARM_COMMAND = "set_alarm";
+const TURN_ON_ALARM_COMMAND = "turn_on_alarm";
+const TURN_OFF_ALARM_COMMAND = "turn_off_alarm";
+const TURN_ON_FLASH_COMMAND = "turn_on_flash";
+const TURN_OFF_FLASH_COMMAND = "turn_off_flash";
+const GET_STATUS_COMMAND = "get_status";
+const RESET_SYSTEM_COMMAND = "reset_system";
+const START_COMMAND = "start";
+const STOP_COMMAND = "stop";
 
 export default {
   data() {
     return {
+      commands: [
+        {
+          title: "Set Flash",
+          background: "#2a75bc",
+          method: () => {
+            this.command = SET_FLASH_COMMAND;
+            let frequency = prompt("Enter the frequency (s):");
+            if (!frequency) {
+              alert("Please enter valid frequency and duration values.");
+              return;
+            }
+            this.command += ` freq=${frequency} duration=${frequency}`;
+            this.sendCommand();
+          },
+        },
+        {
+          title: "Set Alarm",
+          background: "#2a75bc",
+          method: () => {
+            this.command = SET_ALARM_COMMAND;
+            let frequency = prompt("Enter the frequency (Hz):");
+            let duration = prompt("Enter the duration (ms):");
+            if (!frequency || !duration) {
+              alert("Please enter valid frequency and duration values.");
+              return;
+            }
+            this.command += ` freq=${frequency} duration=${duration}`;
+            this.sendCommand();
+          },
+        },
+        {
+          title: "Turn On Alarm",
+          background: "#4caf50",
+          method: () => {
+            this.command = TURN_ON_ALARM_COMMAND;
+            this.sendCommand();
+          },
+        },
+        {
+          title: "Turn Off Alarm",
+          background: "#e74c3c",
+          method: () => {
+            this.command = TURN_OFF_ALARM_COMMAND;
+            this.sendCommand();
+          },
+        },
+        {
+          title: "Turn On Flash",
+          background: "#4caf50",
+          method: () => {
+            this.command = TURN_ON_FLASH_COMMAND;
+            this.sendCommand();
+          },
+        },
+        {
+          title: "Turn Off Flash",
+          background: "#e74c3c",
+          method: () => {
+            this.command = TURN_OFF_FLASH_COMMAND;
+            this.sendCommand();
+          },
+        },
+        {
+          title: "Get Status",
+          background: "#2a75bc",
+          method: () => {
+            this.command = GET_STATUS_COMMAND;
+            this.sendCommand();
+          },
+        },
+        {
+          title: "Reset System",
+          background: "#e74c3c",
+          method: () => {
+            this.command = RESET_SYSTEM_COMMAND;
+            this.sendCommand();
+          },
+        },
+        {
+          title: "Demarrer l'enregistrement des logs",
+          background: "#4caf50",
+          method: () => {
+            this.command = START_COMMAND;
+            this.sendCommand();
+          },
+        },
+        {
+          title: "Arreter l'enregistrement des logs",
+          background: "#e74c3c",
+          method: () => {
+            this.command = STOP_COMMAND;
+            this.sendCommand();
+          },
+        },
+      ],
       logs: [],
       command: "",
       alerts: [],
@@ -99,6 +219,16 @@ export default {
         this.logs = response.data;
       } catch (error) {
         console.error("Error fetching logs:", error);
+      }
+    },
+    async cacheLogs() {
+      try {
+        await axios.post("http://localhost:3000/api/cache_logs");
+        alert("Logs cached successfully!");
+        await this.fetchLogs();
+      } catch (error) {
+        console.error("Error caching logs:", error);
+        alert("Failed to cache logs.");
       }
     },
     async fetchSystemStatus() {
@@ -155,6 +285,13 @@ export default {
       this.mqttClient.on("error", (err) => {
         console.error("MQTT error:", err);
       });
+    },
+  },
+  computed: {
+    haveNewCloseAlert() {
+      return this.alerts.some(
+        (alert) => new Date(alert.split("Timestamp: ")[1]) > Date.now() - 50000
+      );
     },
   },
   mounted() {
@@ -263,7 +400,7 @@ export default {
 
 .command-form input {
   padding: 8px;
-  width: 70%;
+  width: 75%;
   border: 1px solid #ccc;
   border-radius: 4px;
 }
@@ -308,5 +445,30 @@ export default {
   background-color: #ffe6e6;
   color: #e74c3c;
   font-weight: bold;
+}
+
+/* /* commands, each command is a button, and each button have an icon and text and is clickable  */
+.commands-container {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #f5f5f5;
+}
+
+.commands {
+  /* grid two cols  */
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.command-button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
 }
 </style>
